@@ -8,8 +8,8 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcutil/hdkeychain"
 	gocore "github.com/core-coin/go-core"
 	"github.com/core-coin/go-core/accounts"
 	"github.com/core-coin/go-core/common"
