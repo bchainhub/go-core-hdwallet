@@ -1,7 +1,6 @@
 package hdwallet
 
 import (
-	"crypto/ecdsa"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
 	gocore "github.com/core-coin/go-core"
+	eddsa "github.com/core-coin/go-goldilocks"
 	"github.com/core-coin/go-core/accounts"
 	"github.com/core-coin/go-core/common"
 	"github.com/core-coin/go-core/common/hexutil"
@@ -233,12 +233,12 @@ func (w *Wallet) SignTxEIP155(account accounts.Account, tx *types.Transaction, c
 	}
 
 	// Sign the transaction and verify the sender to avoid hardware fault surprises
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	signedTx, err := types.SignTx(tx, types.MakeSigner(chainID), privateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	msg, err := signedTx.AsMessage(types.NewEIP155Signer(chainID))
+	msg, err := signedTx.AsMessage(types.MakeSigner(chainID))
 	if err != nil {
 		return nil, err
 	}
@@ -268,12 +268,12 @@ func (w *Wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID
 	}
 
 	// Sign the transaction and verify the sender to avoid hardware fault surprises
-	signedTx, err := types.SignTx(tx, types.HomesteadSigner{}, privateKey)
+	signedTx, err := types.SignTx(tx, types.MakeSigner(chainID), privateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	msg, err := signedTx.AsMessage(types.HomesteadSigner{})
+	msg, err := signedTx.AsMessage(types.MakeSigner(chainID))
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func (w *Wallet) SignTxWithPassphrase(account accounts.Account, passphrase strin
 }
 
 // PrivateKey returns the ECDSA private key of the account.
-func (w *Wallet) PrivateKey(account accounts.Account) (*ecdsa.PrivateKey, error) {
+func (w *Wallet) PrivateKey(account accounts.Account) (*eddsa.PrivateKey, error) {
 	path, err := ParseDerivationPath(account.URL.Path)
 	if err != nil {
 		return nil, err
@@ -316,7 +316,7 @@ func (w *Wallet) PrivateKeyBytes(account accounts.Account) ([]byte, error) {
 		return nil, err
 	}
 
-	return crypto.FromECDSA(privateKey), nil
+	return crypto.FromEDDSA(privateKey), nil
 }
 
 // PrivateKeyHex return the ECDSA private key in hex string format of the account.
@@ -330,7 +330,7 @@ func (w *Wallet) PrivateKeyHex(account accounts.Account) (string, error) {
 }
 
 // PublicKey returns the ECDSA public key of the account.
-func (w *Wallet) PublicKey(account accounts.Account) (*ecdsa.PublicKey, error) {
+func (w *Wallet) PublicKey(account accounts.Account) (*eddsa.PublicKey, error) {
 	path, err := ParseDerivationPath(account.URL.Path)
 	if err != nil {
 		return nil, err
@@ -346,7 +346,7 @@ func (w *Wallet) PublicKeyBytes(account accounts.Account) ([]byte, error) {
 		return nil, err
 	}
 
-	return crypto.FromECDSAPub(publicKey), nil
+	return crypto.FromEDDSAPub(publicKey), nil
 }
 
 // PublicKeyHex return the ECDSA public key in hex string format of the account.
@@ -454,7 +454,8 @@ func NewSeedFromMnemonic(mnemonic string) ([]byte, error) {
 }
 
 // DerivePrivateKey derives the private key of the derivation path.
-func (w *Wallet) derivePrivateKey(path accounts.DerivationPath) (*ecdsa.PrivateKey, error) {
+func (w *Wallet) derivePrivateKey(path accounts.DerivationPath) (*eddsa.PrivateKey, error) {
+	/*
 	var err error
 	key := w.masterKey
 	for _, n := range path {
@@ -464,29 +465,25 @@ func (w *Wallet) derivePrivateKey(path accounts.DerivationPath) (*ecdsa.PrivateK
 		}
 	}
 
-	privateKey, err := key.ECPrivKey()
-	privateKeyECDSA := privateKey.ToECDSA()
+	privateKeyEDDSA := privateKey.ToEDDSA([]byte)
 	if err != nil {
 		return nil, err
 	}
+	*/
 
-	return privateKeyECDSA, nil
+	privateKey := eddsa.PrivateKey{}
+	return &privateKey, nil
 }
 
 // DerivePublicKey derives the public key of the derivation path.
-func (w *Wallet) derivePublicKey(path accounts.DerivationPath) (*ecdsa.PublicKey, error) {
-	privateKeyECDSA, err := w.derivePrivateKey(path)
+func (w *Wallet) derivePublicKey(path accounts.DerivationPath) (*eddsa.PublicKey, error) {
+	privateKeyEDDSA, err := w.derivePrivateKey(path)
 	if err != nil {
 		return nil, err
 	}
 
-	publicKey := privateKeyECDSA.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, errors.New("failed to get public key")
-	}
-
-	return publicKeyECDSA, nil
+	publicKey := eddsa.PrivateToPublic(*privateKeyEDDSA)
+	return &publicKey, nil
 }
 
 // DeriveAddress derives the account address of the derivation path.
